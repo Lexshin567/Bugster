@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyber Adventure — Misi Penyelamat Dunia Digital</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#04091a;--bg2:#070f24;--cyan:#00d4ff;--purple:#a855f7;
+  --amber:#f59e0b;--green:#22c55e;--red:#ef4444;--ice:#7df9ff;--flame:#ff6b1a;
+  --text:#e0f0ff;--muted:#7a8fa6;--border:#1a2f4a;--card:rgba(10,22,45,0.85);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);overflow:hidden}
+body{font-family:'Rajdhani',sans-serif;color:var(--text)}
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.scanlines{position:fixed;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;z-index:0}
+
+/* SCREENS */
+#app{position:relative;z-index:1;width:100%;height:100vh;display:flex;align-items:center;justify-content:center}
+.screen{display:none;width:100%;max-width:700px;max-height:96vh;overflow-y:auto;flex-direction:column;align-items:center;padding:28px 24px;gap:16px;animation:fadeIn .4s ease}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* HUD */
+.hud{position:fixed;top:0;left:0;right:0;z-index:10;display:none;align-items:center;justify-content:space-between;padding:10px 20px;background:rgba(4,9,26,.92);border-bottom:1px solid var(--border);backdrop-filter:blur(8px)}
+.hud.visible{display:flex}
+.hud-lives{display:flex;gap:3px;font-size:1.1rem}
+.hud-badge{font-family:'Orbitron',sans-serif;font-size:.65rem;letter-spacing:2px;color:var(--cyan);background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);border-radius:20px;padding:4px 14px}
+.hud-score{font-family:'Orbitron',sans-serif;font-size:.8rem;color:var(--amber)}
+
+/* TYPOGRAPHY */
+.logo-title{font-family:'Orbitron',sans-serif;font-size:clamp(2rem,6vw,3.2rem);font-weight:900;line-height:1;text-align:center;background:linear-gradient(135deg,var(--cyan) 0%,var(--purple) 50%,var(--amber) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 24px rgba(0,212,255,.4))}
+.logo-sub{font-family:'Orbitron',sans-serif;font-size:.65rem;letter-spacing:4px;color:var(--purple);text-align:center;margin-top:4px}
+.screen-title{font-family:'Orbitron',sans-serif;font-size:1.1rem;letter-spacing:3px;color:var(--cyan);text-align:center}
+.muted{color:var(--muted);font-size:.9rem;text-align:center;line-height:1.6;max-width:440px}
+
+/* BUTTONS */
+.btn{font-family:'Orbitron',sans-serif;font-size:.72rem;letter-spacing:2px;padding:13px 32px;border-radius:8px;border:none;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.btn-primary{background:linear-gradient(135deg,#0ea5e9,var(--purple));color:#fff;box-shadow:0 0 20px rgba(14,165,233,.4)}
+.btn-primary:hover{transform:scale(1.04);box-shadow:0 0 32px rgba(168,85,247,.5)}
+.btn-secondary{background:transparent;border:1.5px solid var(--cyan);color:var(--cyan)}
+.btn-secondary:hover{background:rgba(0,212,255,.08)}
+.btn:disabled{opacity:.35;pointer-events:none}
+.btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn-skill{font-family:'Orbitron',sans-serif;font-size:.65rem;letter-spacing:1.5px;padding:10px 18px;border-radius:24px;border:1.5px solid var(--ice);background:rgba(125,249,255,.08);color:var(--ice);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .2s}
+.btn-skill:hover:not(:disabled){background:rgba(125,249,255,.18);transform:translateY(-2px)}
+.btn-skill:disabled{opacity:.3;pointer-events:none}
+.btn-skill.fire{border-color:var(--flame);background:rgba(255,107,26,.08);color:var(--flame)}
+.btn-skill.fire:hover:not(:disabled){background:rgba(255,107,26,.18)}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;backdrop-filter:blur(6px)}
+.speech{background:rgba(0,212,255,.07);border:1.5px solid rgba(0,212,255,.3);border-radius:14px;padding:16px 20px;max-width:380px;text-align:center;font-size:.95rem;line-height:1.7;position:relative}
+.speech::after{content:'';position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);border:10px solid transparent;border-top:12px solid rgba(0,212,255,.3);border-bottom:none}
+.robot-emoji{font-size:5rem;animation:floatY 2.5s ease-in-out infinite;display:block;text-align:center;filter:drop-shadow(0 0 20px rgba(0,212,255,.5))}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+
+/* CHAR CARDS */
+.char-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.char-card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:18px 14px;cursor:pointer;text-align:center;transition:all .25s;min-width:110px;flex:1;max-width:150px}
+.char-card:hover{border-color:rgba(168,85,247,.5);transform:translateY(-4px)}
+.char-card.selected{border-color:var(--purple);background:rgba(168,85,247,.12);transform:translateY(-4px);box-shadow:0 0 20px rgba(168,85,247,.3)}
+.char-emoji{font-size:3rem;display:block;margin-bottom:6px}
+.char-name{font-family:'Orbitron',sans-serif;font-size:.6rem;letter-spacing:2px;color:var(--purple)}
+.char-skill{font-family:'Orbitron',sans-serif;font-size:.52rem;letter-spacing:1px;margin-top:6px;padding:3px 8px;border-radius:10px;display:inline-block}
+.char-skill.none{color:var(--muted);background:rgba(122,143,166,.1)}
+.char-skill.freeze{color:var(--ice);background:rgba(125,249,255,.12)}
+.char-skill.fire{color:var(--flame);background:rgba(255,107,26,.12)}
+
+/* RULES */
+.rules-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.rule-item{display:flex;align-items:flex-start;gap:10px;background:rgba(0,212,255,.04);border:1px solid var(--border);border-radius:10px;padding:12px}
+.rule-icon{font-size:1.3rem;flex-shrink:0;margin-top:1px}
+.rule-text{font-size:.85rem;color:var(--muted);line-height:1.4}
+
+/* PROGRESS */
+.progress-wrap{width:100%;max-width:340px;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));border-radius:3px;transition:width .6s ease}
+
+/* LEVEL ENTRY */
+.level-icon{font-size:5rem;display:block;text-align:center;filter:drop-shadow(0 0 30px rgba(0,212,255,.6));animation:floatY 3s ease-in-out infinite}
+.level-title{font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:900;text-align:center;color:var(--cyan)}
+.level-sub{font-family:'Orbitron',sans-serif;font-size:.75rem;letter-spacing:4px;color:var(--muted);text-align:center}
+
+/* ═══════════════════════════════════════════
+   HUNT SCREEN — TANGKAP BUGSTER
+   ═══════════════════════════════════════════ */
+#sHunt{position:relative;background:transparent}
+#huntArena{
+  position:relative;width:100%;max-width:600px;
+  height:340px;background:rgba(4,9,26,.95);
+  border:2px solid var(--red);border-radius:16px;overflow:hidden;
+  box-shadow:0 0 30px rgba(239,68,68,.3);
+  transition:box-shadow .3s,filter .3s;
+}
+/* grid pattern inside arena */
+#huntArena::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 30px,rgba(239,68,68,.05) 30px,rgba(239,68,68,.05) 31px),
+             repeating-linear-gradient(90deg,transparent,transparent 30px,rgba(239,68,68,.05) 30px,rgba(239,68,68,.05) 31px);
+}
+#huntArena.frozen-fx{
+  border-color:var(--ice);
+  box-shadow:0 0 40px rgba(125,249,255,.55), inset 0 0 60px rgba(125,249,255,.15);
+  filter:saturate(.7) brightness(1.05);
+}
+#huntArena.frozen-fx::after{
+  content:'❄️ FREEZE AKTIF';position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  font-family:'Orbitron',sans-serif;font-size:.6rem;letter-spacing:2px;color:var(--ice);
+  background:rgba(4,9,26,.7);padding:4px 12px;border-radius:20px;border:1px solid rgba(125,249,255,.4);z-index:6;
+}
+#huntArena.fire-fx{animation:fireFlash .5s ease;}
+@keyframes fireFlash{0%{box-shadow:0 0 0 rgba(255,107,26,0)}40%{box-shadow:0 0 60px rgba(255,107,26,.8)}100%{box-shadow:0 0 30px rgba(239,68,68,.3)}}
+
+.spawn-icon{
+  position:absolute;font-size:2.4rem;cursor:pointer;user-select:none;
+  opacity:0;transform:scale(.2);pointer-events:none;
+  transition:opacity .18s ease,transform .18s cubic-bezier(.34,1.56,.64,1);
+  z-index:2;
+}
+.spawn-icon.show{opacity:1;transform:scale(1);pointer-events:auto;}
+#bugster{filter:drop-shadow(0 0 12px rgba(239,68,68,.8));}
+#bugster.show{animation:bugsterWiggle .3s ease-in-out infinite alternate;}
+@keyframes bugsterWiggle{from{transform:rotate(-8deg) scale(1)}to{transform:rotate(8deg) scale(1.05)}}
+#bugster.caught{animation:bugsterCaught .3s ease forwards !important;}
+@keyframes bugsterCaught{0%{transform:scale(1)}50%{transform:scale(1.8);filter:drop-shadow(0 0 30px rgba(34,197,94,1))}100%{transform:scale(0);opacity:0}}
+
+#bomb{filter:drop-shadow(0 0 14px rgba(255,107,26,.9));}
+#bomb.show{animation:bombPulse .5s ease-in-out infinite alternate;}
+@keyframes bombPulse{from{transform:scale(1)}to{transform:scale(1.12)}}
+#bomb.hit{animation:bombHit .35s ease forwards !important;}
+@keyframes bombHit{0%{transform:scale(1)}40%{transform:scale(1.6);filter:drop-shadow(0 0 40px rgba(239,68,68,1))}100%{transform:scale(0);opacity:0}}
+
+.hunt-timer-bar{
+  width:100%;max-width:600px;height:8px;
+  background:var(--border);border-radius:4px;overflow:hidden;
+}
+.hunt-timer-fill{
+  height:100%;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));
+  border-radius:4px;transition:width .1s linear;
+  transform-origin:left;
+}
+.hunt-label{
+  font-family:'Orbitron',sans-serif;font-size:.65rem;
+  letter-spacing:2px;color:var(--red);text-align:center;
+  text-shadow:0 0 10px rgba(239,68,68,.5);
+}
+.hunt-counter{
+  font-family:'Orbitron',sans-serif;font-size:1rem;
+  color:var(--amber);text-align:center;
+}
+.catch-counter{
+  font-family:'Orbitron',sans-serif;font-size:.85rem;
+  color:var(--green);text-align:center;
+  background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);
+  border-radius:20px;padding:4px 16px;display:inline-block;align-self:center;
+}
+.hunt-instruct{
+  font-size:.85rem;color:var(--muted);text-align:center;
+  background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);
+  border-radius:8px;padding:8px 16px;max-width:500px;
+}
+/* caught overlay */
+#huntOverlay{
+  position:absolute;inset:0;display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:10px;
+  background:rgba(4,9,26,.85);border-radius:14px;z-index:5;
+}
+#huntOverlay.show{display:flex}
+#huntOverlay .ov-icon{font-size:4rem;animation:popIn .4s cubic-bezier(.36,1.6,.5,1)}
+#huntOverlay .ov-title{font-family:'Orbitron',sans-serif;font-size:1rem;letter-spacing:3px;color:var(--green)}
+@keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* MISS overlay (time up / target not reached) */
+#huntMiss{
+  position:absolute;inset:0;display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:8px;
+  background:rgba(239,68,68,.12);border-radius:14px;z-index:5;
+  animation:shake .3s ease;
+}
+#huntMiss.show{display:flex}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+/* QUESTION */
+.q-label{font-family:'Orbitron',sans-serif;font-size:.65rem;letter-spacing:2px;color:var(--muted)}
+.q-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;width:100%;text-align:center}
+.q-text{font-size:1rem;font-weight:600;line-height:1.6;color:var(--text);margin-bottom:18px}
+.options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.opt{background:rgba(10,22,45,.9);border:1.5px solid var(--border);border-radius:10px;padding:14px 8px;cursor:pointer;text-align:center;transition:all .2s;font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:600;color:var(--text)}
+.opt:hover:not(:disabled){border-color:var(--cyan);background:rgba(0,212,255,.08);transform:translateY(-2px)}
+.opt.correct{border-color:var(--green)!important;background:rgba(34,197,94,.15)!important;color:var(--green)!important}
+.opt.wrong{border-color:var(--red)!important;background:rgba(239,68,68,.15)!important;color:var(--red)!important}
+.opt:disabled{cursor:default}
+.opt-icon{font-size:1.5rem;display:block;margin-bottom:5px}
+
+/* FEEDBACK */
+.fb-icon{font-size:5rem;display:block;text-align:center;animation:popIn .4s cubic-bezier(.36,1.6,.5,1)}
+.fb-title{font-family:'Orbitron',sans-serif;font-size:1.3rem;text-align:center;letter-spacing:2px}
+.fb-title.ok{color:var(--green);text-shadow:0 0 20px rgba(34,197,94,.5)}
+.fb-title.fail{color:var(--red);text-shadow:0 0 20px rgba(239,68,68,.5)}
+.fb-char{font-size:4rem;display:block;text-align:center;animation:floatY 2s ease-in-out infinite}
+.fb-hint{background:rgba(0,212,255,.05);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:.85rem;color:var(--muted);text-align:center;max-width:400px;line-height:1.5}
+
+/* MAP */
+.map-wrap{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;width:100%}
+.zone-col{display:flex;flex-direction:column;align-items:center;gap:6px}
+.zone-circle{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;border:2px solid;transition:all .3s}
+.zone-circle.z-done{background:rgba(34,197,94,.15);border-color:var(--green);box-shadow:0 0 18px rgba(34,197,94,.4)}
+.zone-circle.z-active{background:rgba(0,212,255,.12);border-color:var(--cyan);box-shadow:0 0 18px rgba(0,212,255,.4);animation:zonePulse 1.5s ease-in-out infinite}
+.zone-circle.z-locked{background:rgba(26,47,74,.2);border-color:var(--border);opacity:.5}
+.zone-circle.z-boss{background:rgba(239,68,68,.1);border-color:var(--red)}
+.zone-circle.z-boss-done{background:rgba(34,197,94,.15);border-color:var(--green);box-shadow:0 0 18px rgba(34,197,94,.4)}
+@keyframes zonePulse{0%,100%{box-shadow:0 0 18px rgba(0,212,255,.4)}50%{box-shadow:0 0 32px rgba(0,212,255,.7)}}
+.zone-name{font-family:'Orbitron',sans-serif;font-size:.55rem;letter-spacing:.5px;color:var(--muted);text-align:center;line-height:1.4;max-width:80px}
+.zone-arrow{font-size:1.3rem;color:var(--border);margin:0 2px;padding-bottom:22px}
+
+/* END SCREENS */
+.big-emoji{font-size:6rem;display:block;text-align:center;animation:floatY 2.5s ease-in-out infinite}
+.win-stars{font-size:2.2rem;letter-spacing:10px;text-align:center}
+.final-score{font-family:'Orbitron',sans-serif;font-size:1.4rem;color:var(--amber);text-align:center}
+.stat-row{display:flex;gap:24px;justify-content:center}
+.stat-box{text-align:center;background:rgba(0,212,255,.05);border:1px solid var(--border);border-radius:10px;padding:12px 20px}
+.stat-label{font-family:'Orbitron',sans-serif;font-size:.6rem;letter-spacing:2px;color:var(--muted);margin-bottom:4px}
+
+@media(max-width:500px){
+  .options{grid-template-columns:1fr}
+  .rules-grid{grid-template-columns:1fr}
+  .char-row{gap:8px}
+  #huntArena{height:260px}
+  .spawn-icon{font-size:2rem}
+}
+</style>
+</head>
+<body>
+
+
+<!-- BACKGROUND MUSIC -->
+
+<canvas id="bgCanvas"></canvas>
+<div class="scanlines"></div>
+
+<audio id="bgm" src="ultra.mp3.mpeg" loop></audio>
+
+<!-- HUD -->
+<div class="hud" id="hud">
+  <div class="hud-lives" id="hudLives"></div>
+  <div class="hud-badge" id="hudBadge">LEVEL 1</div>
+  <div class="hud-score" id="hudScore">⭐ 0</div>
+</div>
+
+<div id="app">
+
+  <!-- S1: OPENING -->
+  <div class="screen active" id="s1">
+    <div class="logo-title">CYBER<br>ADVENTURE</div>
+    <div class="logo-sub">MISI PENYELAMAT DUNIA DIGITAL</div>
+    <div style="height:8px"></div>
+    <p class="muted">Selamat datang di Dunia Digital! Sistem keamanan kota sedang diserang oleh virus berbahaya bernama <span style="color:var(--red);font-weight:700">Bugster</span>, lengkap dengan jebakan <span style="color:var(--flame);font-weight:700">bom</span> yang berkeliaran. Data penting hilang dan semua perangkat terancam rusak.</p>
+    <button class="btn btn-primary" onclick="go('s2')">▶&nbsp;&nbsp;MULAI</button>
+  </div>
+
+  <!-- S2: MISI -->
+  <div class="screen" id="s2">
+    <div class="screen-title">MUNCULNYA MISI</div>
+    <div class="speech">
+      Halo, <strong style="color:var(--cyan)">Agen Cyber!</strong> Kami membutuhkan bantuanmu untuk menyelamatkan kota digital.<br><br>
+      Tangkap <strong style="color:var(--red)">7 Bugster</strong> yang muncul-hilang secara acak, hindari <strong style="color:var(--flame)">bom</strong>, lalu jawab tantangan teknologi untuk mengalahkannya!
+    </div>
+    <span class="robot-emoji">🤖</span>
+    <p class="muted">Setiap soal dijaga oleh gelombang Bugster — capai targetmu dulu baru kamu bisa menjawab!</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="go('s1')">← KEMBALI</button>
+      <button class="btn btn-primary" onclick="go('s3')">TERIMA MISI ✓</button>
+    </div>
+  </div>
+
+  <!-- S3: PILIH KARAKTER -->
+  <div class="screen" id="s3">
+    <div class="screen-title">PILIH AVATARMU!</div>
+    <div class="char-row">
+      <div class="char-card" onclick="selectChar(0)" id="c0">
+        <span class="char-emoji">🧑‍💻</span><div class="char-name">TECH BOY</div>
+        <span class="char-skill none">TANPA SKILL</span>
+      </div>
+      <div class="char-card" onclick="selectChar(1)" id="c1">
+        <span class="char-emoji">👧</span><div class="char-name">CYBER GIRL</div>
+        <span class="char-skill freeze">❄️ FREEZE</span>
+      </div>
+      <div class="char-card" onclick="selectChar(2)" id="c2">
+        <span class="char-emoji">🤖</span><div class="char-name">ROBO KID</div>
+        <span class="char-skill fire">🔥 FIRE RUSH</span>
+      </div>
+    </div>
+    <p class="muted">❄️ <strong>Freeze</strong> membekukan Bugster &amp; bom 3 detik agar mudah ditangkap/dihindari. 🔥 <strong>Fire Rush</strong> langsung menghancurkan bom yang mengganggu. 1x pakai per level!</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="go('s2')">← KEMBALI</button>
+      <button class="btn btn-primary" id="btnChar" disabled onclick="go('s4')">LANJUT →</button>
+    </div>
+  </div>
+
+  <!-- S4: ATURAN -->
+  <div class="screen" id="s4">
+    <div class="screen-title">CARA BERMAIN</div>
+    <div class="rules-grid">
+      <div class="rule-item"><span class="rule-icon">👾</span><div class="rule-text">Tangkap <strong>minimal 7 Bugster</strong> yang muncul &amp; hilang secara acak sebelum waktu habis</div></div>
+      <div class="rule-item"><span class="rule-icon">💣</span><div class="rule-text">Jangan sentuh <strong>bom</strong>! Klik bom mengurangi <strong>1 nyawa</strong></div></div>
+      <div class="rule-item"><span class="rule-icon">⏳</span><div class="rule-text">Target 7 tidak tercapai sebelum waktu habis = <strong>soal tidak muncul</strong> &amp; nyawa berkurang</div></div>
+      <div class="rule-item"><span class="rule-icon">⭐</span><div class="rule-text">Jawaban benar mendapat <strong>100 poin</strong>, salah mengurangi nyawa</div></div>
+      <div class="rule-item"><span class="rule-icon">✨</span><div class="rule-text">Gunakan <strong>skill</strong> karaktermu (❄️/🔥) sekali per level untuk membantu</div></div>
+      <div class="rule-item"><span class="rule-icon">🏁</span><div class="rule-text">Selesaikan semua level untuk mengalahkan Bugster!</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-label">NYAWA</div><div style="font-size:1.2rem;margin-top:4px">❤️❤️❤️</div></div>
+      <div class="stat-box"><div class="stat-label">SKOR AWAL</div><div style="font-size:1.2rem;margin-top:4px">⭐ 0</div></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="go('s3')">← KEMBALI</button>
+      <button class="btn btn-primary" onclick="startGame()">MULAI PETUALANGAN 🚀</button>
+    </div>
+  </div>
+
+  <!-- S5: LEVEL ENTRY -->
+  <div class="screen" id="s5">
+    <span class="level-icon" id="lvlIcon">🖥️</span>
+    <div class="level-title" id="lvlName">LEVEL 1</div>
+    <div class="level-sub" id="lvlSub">HARDWARE ZONE</div>
+    <p class="muted" id="lvlDesc"></p>
+    <div class="progress-wrap"><div class="progress-fill" id="pbar" style="width:0%"></div></div>
+    <button class="btn btn-primary" onclick="startHunt()">MASUK LEVEL →</button>
+  </div>
+
+  <!-- HUNT SCREEN: TANGKAP BUGSTER -->
+  <div class="screen" id="sHunt">
+    <div class="hunt-label">⚠️ TANGKAP 7 BUGSTER &amp; HINDARI BOM! ⚠️</div>
+    <div class="hunt-counter" id="huntCounter">SOAL 1 / 3</div>
+    <div class="catch-counter" id="catchCounter">🎯 Tertangkap: 0 / 7</div>
+    <div class="hunt-instruct">👆 Klik/Tap 👾 Bugster yang muncul-hilang acak. Jangan kena 💣 Bom!</div>
+
+    <div id="huntArena">
+      <div id="bugster" class="spawn-icon">👾</div>
+      <div id="bomb" class="spawn-icon">💣</div>
+      <!-- caught overlay -->
+      <div id="huntOverlay">
+        <div class="ov-icon">✅</div>
+        <div class="ov-title">TARGET TERCAPAI!</div>
+        <div style="color:var(--muted);font-size:.85rem">Soal muncul sebentar lagi...</div>
+      </div>
+      <!-- miss overlay -->
+      <div id="huntMiss">
+        <div style="font-size:3rem">😰</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:.9rem;color:var(--red);letter-spacing:2px" id="huntMissTitle">TARGET TIDAK TERCAPAI!</div>
+        <div style="color:var(--muted);font-size:.8rem" id="huntMissSub">-1 Nyawa. Coba lagi...</div>
+      </div>
+    </div>
+
+    <div class="hunt-timer-bar">
+      <div class="hunt-timer-fill" id="huntTimerFill" style="width:100%"></div>
+    </div>
+    <p class="muted" style="font-size:.8rem" id="huntTimeLabel">⏱️ 20 detik</p>
+    <button class="btn-skill" id="skillBtn" onclick="useSkill()" style="display:none"></button>
+  </div>
+
+  <!-- S6: SOAL -->
+  <div class="screen" id="s6">
+    <div class="q-label" id="qCounter">SOAL 1 / 3</div>
+    <div class="q-box">
+      <div class="q-text" id="qText"></div>
+      <div class="options" id="qOpts"></div>
+    </div>
+  </div>
+
+  <!-- S7: FEEDBACK -->
+  <div class="screen" id="s7">
+    <span class="fb-icon" id="fbIcon">🎉</span>
+    <div class="fb-title ok" id="fbTitle">JAWABAN BENAR!</div>
+    <span class="fb-char" id="fbChar">🧑‍💻</span>
+    <div class="fb-hint" id="fbHint"></div>
+    <button class="btn btn-primary" id="fbBtn" onclick="nextStep()">LANJUT →</button>
+  </div>
+
+  <!-- S8: PETA -->
+  <div class="screen" id="s8">
+    <div class="screen-title">LANJUT PETUALANGAN</div>
+    <p class="muted" id="mapInfo">Level berikutnya menanti!</p>
+    <div class="map-wrap" id="mapWrap"></div>
+    <button class="btn btn-primary" id="mapBtn" onclick="goNextLevel()">LANJUT ▶</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="screen" id="sOver">
+    <span class="big-emoji">💀</span>
+    <div style="font-family:'Orbitron',sans-serif;font-size:1.6rem;color:var(--red);text-align:center;letter-spacing:3px;text-shadow:0 0 20px rgba(239,68,68,.5)">GAME OVER</div>
+    <p class="muted">Nyawamu habis! Bugster berhasil menguasai kota digital.</p>
+    <div class="final-score" id="overScore">⭐ 0</div>
+    <button class="btn btn-primary" onclick="resetGame()">🔄&nbsp;&nbsp;MAIN LAGI</button>
+  </div>
+
+  <!-- VICTORY -->
+  <div class="screen" id="sWin">
+    <span class="big-emoji">🏆</span>
+    <div style="font-family:'Orbitron',sans-serif;font-size:1.3rem;color:var(--amber);text-align:center;letter-spacing:2px;text-shadow:0 0 20px rgba(245,158,11,.5)">BUGSTER DIKALAHKAN!</div>
+    <p class="muted">Luar biasa! Kamu berhasil menyelamatkan Dunia Digital dari serangan Bugster!</p>
+    <div class="win-stars" id="winStars">⭐⭐⭐</div>
+    <div class="final-score" id="winScore">⭐ 0</div>
+    <button class="btn btn-primary" onclick="resetGame()">🔄&nbsp;&nbsp;MAIN LAGI</button>
+  </div>
+
+</div><!-- #app -->
+<button onclick="toggleMusic()" id="btnMute"
+  style="position:fixed;bottom:16px;right:16px;z-index:999;
+  background:rgba(4,9,26,.85);border:1.5px solid #1a2f4a;
+  border-radius:50%;width:44px;height:44px;font-size:1.2rem;
+  cursor:pointer;color:#fff;backdrop-filter:blur(6px)">🔊</button>
+
+<script>
+// ── PARTICLE BG ──────────────────────────────────────────
+const cvs=document.getElementById('bgCanvas'),ctx=cvs.getContext('2d');
+let W,H,particles=[];
+function resize(){W=cvs.width=window.innerWidth;H=cvs.height=window.innerHeight}
+resize();window.addEventListener('resize',resize);
+for(let i=0;i<90;i++) particles.push({x:Math.random()*2000,y:Math.random()*1200,r:Math.random()*1.5+.3,s:Math.random()*.4+.1,a:Math.random()*Math.PI*2,blink:Math.random()*2});
+function drawBg(){
+  ctx.clearRect(0,0,W,H);const t=Date.now()/1000;
+  particles.forEach(p=>{
+    const alpha=(.3+.7*Math.abs(Math.sin(t*p.blink+p.a)));
+    ctx.beginPath();ctx.arc(p.x%W,p.y%H,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(0,212,255,${alpha*0.6})`;ctx.fill();
+    p.y-=p.s;if(p.y<0)p.y=H;
+  });
+  ctx.strokeStyle='rgba(0,212,255,0.025)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+
+// ── BACKGROUND MUSIC ──────────────────────────────────────
+const bgm = document.getElementById('bgm');
+bgm.volume = 0.4;
+let musicStarted = false;
+function startMusic() {
+  if (!musicStarted) {
+    bgm.play().catch(()=>{});
+    musicStarted = true;
+  }
+}
+document.addEventListener('click', startMusic, { once: true });
+document.addEventListener('touchstart', startMusic, { once: true });
+
+function toggleMusic(){
+  const btn = document.getElementById('btnMute');
+  if(bgm.paused){ bgm.play(); btn.textContent='🔊'; }
+  else { bgm.pause(); btn.textContent='🔇'; }
+}
+
+// ── GAME DATA ────────────────────────────────────────────
+const CHARS=['🧑‍💻','👧','🤖'];
+const LEVELS=[
+  {name:'LEVEL 1',sub:'HARDWARE ZONE',icon:'🖥️',color:'#00d4ff',questions:[
+    {q:'Manakah komponen yang berfungsi menampilkan gambar?',opts:['⌨️ Keyboard','🖥️ Monitor','🖱️ Mouse'],correct:1,hint:'Monitor adalah layar yang menampilkan output visual dari komputer.'},
+    {q:'Apa fungsi utama CPU dalam komputer?',opts:['💾 Menyimpan data','⚙️ Memproses instruksi','🖼️ Menampilkan gambar'],correct:1,hint:'CPU (Central Processing Unit) adalah otak komputer yang memproses semua instruksi.'},
+    {q:'Perangkat mana yang termasuk Input Device?',opts:['🖨️ Printer','🔊 Speaker','⌨️ Keyboard'],correct:2,hint:'Input device adalah perangkat yang mengirimkan data ke dalam komputer.'}
+  ]},
+  {name:'LEVEL 2',sub:'INTERNET SAFETY ZONE',icon:'🌐',color:'#a855f7',questions:[
+    {q:'Apa yang harus kamu lakukan dengan password?',opts:['👥 Dibagikan ke teman','🔒 Dirahasiakan','📝 Ditulis di tembok'],correct:1,hint:'Password bersifat rahasia untuk menjaga keamanan akunmu dari orang lain.'},
+    {q:'Website yang aman biasanya memiliki tanda...',opts:['⚠️ http://','🔒 https://','📁 ftp://'],correct:1,hint:'HTTPS menggunakan enkripsi SSL/TLS untuk melindungi data yang dikirim.'},
+    {q:'Jika orang asing di internet meminta fotomu, kamu harus...',opts:['📸 Langsung kirim','🛡️ Tolak & lapor orang tua','❓ Tanya nama dulu'],correct:1,hint:'Selalu ceritakan ke orang tua atau guru jika ada yang mencurigakan di internet.'}
+  ]},
+  {name:'LEVEL 3',sub:'PASSWORD SECURITY ZONE',icon:'🔐',color:'#f59e0b',questions:[
+    {q:'Password manakah yang paling aman?',opts:['🔢 12345','👤 namasaya123','💪 T#9kL@2z!'],correct:2,hint:'Password kuat mengandung huruf besar, kecil, angka, dan simbol khusus.'},
+    {q:'Seberapa sering kamu harus mengganti password?',opts:['❌ Tidak pernah','🔄 Secara berkala','📅 Setiap hari'],correct:1,hint:'Mengganti password secara berkala meningkatkan keamanan akun secara signifikan.'},
+    {q:'Manakah yang BUKAN cara menjaga keamanan akun?',opts:['✅ Aktifkan 2FA','❌ Pakai 1 password untuk semua akun','🔑 Password unik tiap akun'],correct:1,hint:'Jangan pernah pakai password yang sama untuk semua akun — sangat berbahaya!'}
+  ]}
+];
+
+let lives=3,score=0,selChar=0,curLv=0,curQ=0,lvDone=[];
+
+// ── HUNT STATE ───────────────────────────────────────────
+const CATCH_TARGET = 7;
+let huntMainInterval=null;
+let huntRoundDuration=0, huntRoundTimer=0;
+let catchCount=0;
+let bug={visible:false,timer:0,x:0,y:0};
+let bomb={visible:false,timer:0,x:0,y:0};
+let freezeActive=false, freezeTimeout=null;
+let fireRushUntil=0;
+let skillCharges=0;
+
+// ── HELPERS ──────────────────────────────────────────────
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const showHUD=['s5','s6','s7','s8','sHunt'].includes(id);
+  document.getElementById('hud').classList.toggle('visible',showHUD);
+  if(showHUD) refreshHUD();
+}
+function refreshHUD(){
+  const h=document.getElementById('hudLives');h.innerHTML='';
+  for(let i=0;i<3;i++){const s=document.createElement('span');s.textContent=i<lives?'❤️':'🖤';s.style.fontSize='1.1rem';if(i>=lives)s.style.opacity='.3';h.appendChild(s)}
+  document.getElementById('hudScore').textContent='⭐ '+score;
+  document.getElementById('hudBadge').textContent=LEVELS[curLv].name;
+}
+function selectChar(i){selChar=i;document.querySelectorAll('.char-card').forEach((c,j)=>c.classList.toggle('selected',j===i));document.getElementById('btnChar').disabled=false;}
+function startGame(){lives=3;score=0;curLv=0;curQ=0;lvDone=[];showLevelEntry();}
+function resetGame(){
+  document.querySelectorAll('.char-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('btnChar').disabled=true;
+  stopHuntInterval();
+  go('s1');
+}
+
+// ── LEVEL ENTRY ───────────────────────────────────────────
+function showLevelEntry(){
+  const lv=LEVELS[curLv];
+  document.getElementById('lvlIcon').textContent=lv.icon;
+  document.getElementById('lvlName').textContent=lv.name;
+  document.getElementById('lvlSub').textContent=lv.sub;
+  document.getElementById('lvlDesc').textContent=`Gerbang terbuka! Masuk ke ${lv.name}: ${lv.sub} — tangkap 7 Bugster & hindari bom untuk membuka setiap soal!`;
+  document.getElementById('pbar').style.width=(curLv/LEVELS.length*100)+'%';
+  skillCharges=1; // 1 skill charge per level
+  go('s5');
+}
+
+// ══════════════════════════════════════════════════════════
+// HUNT — MINI GAME TANGKAP BUGSTER + HINDARI BOM
+// ══════════════════════════════════════════════════════════
+function getSkillType(){
+  if(selChar===1) return 'freeze';
+  if(selChar===2) return 'firerush';
+  return null;
+}
+
+function randPos(arena){
+  const aW=Math.max(10,arena.clientWidth-56), aH=Math.max(10,arena.clientHeight-56);
+  return {x:Math.random()*aW,y:Math.random()*aH};
+}
+
+function startHunt(){
+  stopHuntInterval();
+  catchCount=0;
+  huntRoundDuration=Math.max(14000, 22000 - curLv*2000 - curQ*500);
+  huntRoundTimer=huntRoundDuration;
+
+  bug.visible=false; bug.timer=400+Math.random()*300;
+  bomb.visible=false; bomb.timer=900+Math.random()*500;
+  freezeActive=false;
+  if(freezeTimeout){clearTimeout(freezeTimeout);freezeTimeout=null;}
+  fireRushUntil=0;
+
+  document.getElementById('huntArena').classList.remove('frozen-fx');
+  document.getElementById('huntOverlay').classList.remove('show');
+  document.getElementById('huntMiss').classList.remove('show');
+  document.getElementById('huntCounter').textContent=`SOAL ${curQ+1} / ${LEVELS[curLv].questions.length}`;
+  document.getElementById('catchCounter').textContent=`🎯 Tertangkap: 0 / ${CATCH_TARGET}`;
+
+  const bugEl=document.getElementById('bugster');
+  bugEl.classList.remove('show','caught');
+  bugEl.onclick=catchBug;
+  const bombEl=document.getElementById('bomb');
+  bombEl.classList.remove('show','hit');
+  bombEl.onclick=hitBomb;
+
+  updateSkillButton();
+  renderHunt();
+  go('sHunt');
+  refreshHUD();
+
+  huntMainInterval=setInterval(huntTick,100);
+}
+
+function stopHuntInterval(){
+  if(huntMainInterval){clearInterval(huntMainInterval);huntMainInterval=null;}
+}
+
+function huntTick(){
+  const arena=document.getElementById('huntArena');
+  const now=Date.now();
+
+  if(!freezeActive){
+    huntRoundTimer-=100;
+
+    // bug cycle
+    bug.timer-=100;
+    if(bug.timer<=0){
+      if(bug.visible){
+        bug.visible=false;
+        bug.timer=450+Math.random()*300;
+      } else {
+        const p=randPos(arena);
+        bug.x=p.x;bug.y=p.y;bug.visible=true;
+        bug.timer=(1300-curLv*100)+Math.random()*300;
+      }
+    }
+
+    // bomb cycle
+    bomb.timer-=100;
+    if(bomb.timer<=0){
+      if(bomb.visible){
+        bomb.visible=false;
+        bomb.timer=300+Math.random()*400;
+      } else if(now<fireRushUntil){
+        bomb.timer=500;
+      } else if(Math.random()<0.55){
+        const p=randPos(arena);
+        bomb.x=p.x;bomb.y=p.y;bomb.visible=true;
+        bomb.timer=900+Math.random()*500;
+      } else {
+        bomb.timer=300+Math.random()*400;
+      }
+    }
+  }
+
+  renderHunt();
+
+  if(huntRoundTimer<=0){
+    onRoundFail();
+  }
+}
+
+function renderHunt(){
+  const bugEl=document.getElementById('bugster');
+  bugEl.classList.toggle('show',bug.visible);
+  bugEl.style.left=bug.x+'px';bugEl.style.top=bug.y+'px';
+
+  const bombEl=document.getElementById('bomb');
+  bombEl.classList.toggle('show',bomb.visible);
+  bombEl.style.left=bomb.x+'px';bombEl.style.top=bomb.y+'px';
+
+  const pct=Math.max(0,huntRoundTimer/huntRoundDuration*100);
+  document.getElementById('huntTimerFill').style.width=pct+'%';
+  document.getElementById('huntTimeLabel').textContent='⏱️ '+Math.max(0,Math.ceil(huntRoundTimer/1000))+' detik';
+}
+
+function catchBug(){
+  if(!bug.visible) return;
+  catchCount++;
+  bug.visible=false;
+  bug.timer=300+Math.random()*300;
+  const bugEl=document.getElementById('bugster');
+  bugEl.classList.add('caught');
+  setTimeout(()=>bugEl.classList.remove('caught'),300);
+  document.getElementById('catchCounter').textContent=`🎯 Tertangkap: ${catchCount} / ${CATCH_TARGET}`;
+  if(catchCount>=CATCH_TARGET){
+    onRoundSuccess();
+  }
+}
+
+function hitBomb(){
+  if(!bomb.visible) return;
+  bomb.visible=false;
+  bomb.timer=400+Math.random()*400;
+  const bombEl=document.getElementById('bomb');
+  bombEl.classList.add('hit');
+  setTimeout(()=>bombEl.classList.remove('hit'),350);
+  lives--;
+  refreshHUD();
+  if(lives<=0){
+    stopHuntInterval();
+    setTimeout(()=>{document.getElementById('overScore').textContent='⭐ '+score;go('sOver');},700);
+  }
+}
+
+function onRoundSuccess(){
+  stopHuntInterval();
+  document.getElementById('bugster').classList.remove('show');
+  document.getElementById('bomb').classList.remove('show');
+  document.getElementById('huntOverlay').classList.add('show');
+  setTimeout(()=>loadQuestion(),1300);
+}
+
+function onRoundFail(){
+  stopHuntInterval();
+  lives--;
+  refreshHUD();
+  document.getElementById('huntMissTitle').textContent='TARGET TIDAK TERCAPAI!';
+  document.getElementById('huntMissSub').textContent=`Baru ${catchCount}/${CATCH_TARGET} Bugster tertangkap. -1 Nyawa, soal belum terbuka.`;
+  document.getElementById('huntMiss').classList.add('show');
+  if(lives<=0){
+    setTimeout(()=>{document.getElementById('overScore').textContent='⭐ '+score;go('sOver');},1600);
+  } else {
+    setTimeout(()=>startHunt(),1600);
+  }
+}
+
+// ── SKILLS: FREEZE & FIRE RUSH ────────────────────────────
+function updateSkillButton(){
+  const btn=document.getElementById('skillBtn');
+  const type=getSkillType();
+  if(!type){btn.style.display='none';return;}
+  btn.style.display='inline-flex';
+  btn.classList.toggle('fire',type==='firerush');
+  btn.disabled=skillCharges<=0||freezeActive;
+  btn.innerHTML=type==='freeze'?'❄️ FREEZE (1x)':'🔥 FIRE RUSH (1x)';
+  if(skillCharges<=0) btn.innerHTML=type==='freeze'?'❄️ FREEZE (terpakai)':'🔥 FIRE RUSH (terpakai)';
+}
+
+function useSkill(){
+  const type=getSkillType();
+  if(!type||skillCharges<=0||freezeActive) return;
+  skillCharges--;
+
+  if(type==='freeze'){
+    freezeActive=true;
+    document.getElementById('huntArena').classList.add('frozen-fx');
+    freezeTimeout=setTimeout(()=>{
+      freezeActive=false;
+      document.getElementById('huntArena').classList.remove('frozen-fx');
+      updateSkillButton();
+    },3000);
+  } else if(type==='firerush'){
+    bomb.visible=false;
+    bomb.timer=1500;
+    fireRushUntil=Date.now()+4000;
+    const bombEl=document.getElementById('bomb');
+    bombEl.classList.remove('show');
+    const arena=document.getElementById('huntArena');
+    arena.classList.add('fire-fx');
+    setTimeout(()=>arena.classList.remove('fire-fx'),500);
+  }
+  updateSkillButton();
+}
+
+// ── QUESTION ─────────────────────────────────────────────
+function loadQuestion(){
+  document.getElementById('huntOverlay').classList.remove('show');
+  document.getElementById('huntMiss').classList.remove('show');
+  const lv=LEVELS[curLv];const q=lv.questions[curQ];
+  document.getElementById('qCounter').textContent=`SOAL ${curQ+1} / ${lv.questions.length}`;
+  document.getElementById('qText').textContent=q.q;
+  const optsEl=document.getElementById('qOpts');optsEl.innerHTML='';
+  q.opts.forEach((o,i)=>{
+    const btn=document.createElement('button');btn.className='opt';
+    const parts=o.split(' ');
+    btn.innerHTML=`<span class="opt-icon">${parts[0]}</span>${parts.slice(1).join(' ')}`;
+    btn.onclick=()=>answer(i);
+    optsEl.appendChild(btn);
+  });
+  go('s6');
+}
+
+function answer(i){
+  const q=LEVELS[curLv].questions[curQ];
+  const btns=document.querySelectorAll('.opt');
+  btns.forEach(b=>{b.disabled=true;b.onclick=null;});
+  const correct=i===q.correct;
+  btns[q.correct].classList.add('correct');
+  if(!correct){btns[i].classList.add('wrong');lives--;}
+  else{score+=100;}
+  refreshHUD();
+  setTimeout(()=>showFeedback(correct,q.hint),700);
+}
+
+function showFeedback(ok,hint){
+  document.getElementById('fbIcon').textContent=ok?'🎉':'😨';
+  document.getElementById('fbTitle').textContent=ok?'JAWABAN BENAR!':'JAWABAN SALAH!';
+  document.getElementById('fbTitle').className='fb-title '+(ok?'ok':'fail');
+  document.getElementById('fbChar').textContent=CHARS[selChar];
+  document.getElementById('fbHint').textContent=(ok?'✅ Hebat! ':'❌ Oh tidak! Virus menyerang. ')+hint;
+  const last=curQ+1>=LEVELS[curLv].questions.length;
+  document.getElementById('fbBtn').textContent=last?'LIHAT PETA ▶':'SOAL BERIKUTNYA →';
+  if(lives<=0){document.getElementById('fbBtn').textContent='LIHAT HASIL';}
+  go('s7');
+}
+
+function nextStep(){
+  if(lives<=0){document.getElementById('overScore').textContent='⭐ '+score;go('sOver');return;}
+  curQ++;
+  if(curQ>=LEVELS[curLv].questions.length){
+    lvDone.push(curLv);buildMap();go('s8');
+  } else {
+    startHunt(); // ← berburu Bugster lagi sebelum soal berikutnya!
+  }
+}
+
+// ── MAP ───────────────────────────────────────────────────
+function buildMap(){
+  const allDone=lvDone.length>=LEVELS.length;
+  const wrap=document.getElementById('mapWrap');wrap.innerHTML='';
+  LEVELS.forEach((lv,i)=>{
+    if(i>0){const arr=document.createElement('span');arr.className='zone-arrow';arr.textContent='→';wrap.appendChild(arr);}
+    const col=document.createElement('div');col.className='zone-col';
+    const circ=document.createElement('div');
+    const done=lvDone.includes(i);
+    circ.className='zone-circle '+(done?'z-done':'z-locked');
+    circ.textContent=lv.icon;
+    const nm=document.createElement('div');nm.className='zone-name';nm.textContent=(i+1)+'. '+lv.sub;
+    col.appendChild(circ);col.appendChild(nm);wrap.appendChild(col);
+  });
+  const arr2=document.createElement('span');arr2.className='zone-arrow';arr2.textContent='→';wrap.appendChild(arr2);
+  const bossCol=document.createElement('div');bossCol.className='zone-col';
+  const bossCirc=document.createElement('div');
+  bossCirc.className='zone-circle '+(allDone?'z-boss-done':'z-boss');
+  bossCirc.textContent=allDone?'✅':'👾';
+  const bossNm=document.createElement('div');bossNm.className='zone-name';bossNm.textContent='BOSS\nBUGSTER';
+  bossCol.appendChild(bossCirc);bossCol.appendChild(bossNm);wrap.appendChild(bossCol);
+
+  const mapBtn=document.getElementById('mapBtn');
+  if(allDone){
+    document.getElementById('mapInfo').textContent='Luar biasa! Semua Bugster berhasil ditangkap!';
+    mapBtn.textContent='🏆 LIHAT HASIL';mapBtn.onclick=showVictory;
+  } else {
+    document.getElementById('mapInfo').textContent='Level berikutnya menanti! Tangkap terus Bugster-nya!';
+    mapBtn.textContent='LANJUT ▶';mapBtn.onclick=goNextLevel;
+  }
+  
+}
+
+function goNextLevel(){curLv++;curQ=0;showLevelEntry();}
+
+function showVictory(){
+  const s=score>=800?'⭐⭐⭐ SEMPURNA!':score>=500?'⭐⭐ BAGUS!':'⭐ SELESAI!';
+  document.getElementById('winStars').textContent=s;
+  document.getElementById('winScore').textContent='⭐ '+score;
+  document.getElementById('hud').classList.remove('visible');
+  stopHuntInterval();
+  go('sWin');
+}
+</script>
+</body>
+</html>
